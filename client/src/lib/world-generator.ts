@@ -623,12 +623,25 @@ export function applyBrush(world: World, point: Point, brush: Brush): World {
     next.settlements.push(settlement);
   }
   if (brush === "erase") {
+    const removedRoads = next.roads.filter((road) => road.path.some((pathPoint) => pointEquals(pathPoint, point)));
+    const removedRivers = next.rivers.filter((river) => river.path.some((pathPoint) => pointEquals(pathPoint, point)));
+    removedRoads.forEach((road) => road.path.forEach((pathPoint) => { getTile(next, pathPoint)!.road = false; }));
+    removedRivers.forEach((river) => river.path.forEach((pathPoint) => { getTile(next, pathPoint)!.river = false; }));
+    if (removedRoads.length) next.roads = next.roads.filter((road) => !removedRoads.some((removed) => removed.id === road.id));
+    if (removedRivers.length) next.rivers = next.rivers.filter((river) => !removedRivers.some((removed) => removed.id === river.id));
     tile.river = false;
     tile.road = false;
     if (tile.settlementId) {
+      const wasSpawn = tile.spawn;
       next.settlements = next.settlements.filter((settlement) => settlement.id !== tile.settlementId);
       tile.settlementId = undefined;
       tile.spawn = false;
+      if (wasSpawn && next.settlements[0]) getTile(next, next.settlements[0])!.spawn = true;
+      next.roads = buildRoads(next);
+    } else {
+      tile.height = Math.max(tile.height, next.config.seaLevel + 0.1);
+      tile.moisture = 0.48;
+      tile.biome = "grassland";
     }
   }
   next.validation = validateWorld(next);

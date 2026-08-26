@@ -27,6 +27,7 @@ import {
   Workflow,
 } from "lucide-react";
 import WorldCanvas, { type MapLayer } from "@/components/WorldCanvas";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
   applyBrush,
   configFromJSON,
@@ -52,6 +53,14 @@ const presetConfigs: { name: string; copy: string; config: Partial<WorldConfig> 
   { name: "Highland", copy: "Alpine ridges / hard routes", config: { roughness: 0.92, seaLevel: 0.26 } },
   { name: "Archipelago", copy: "Broken coast / sparse land", config: { seaLevel: 0.38, roughness: 0.67 } },
 ];
+
+type RailPanel = "editor" | "generator" | "layers" | "routes" | "validation" | "more";
+
+const layerGuide: Record<MapLayer, { title: string; copy: string; legend: string[] }> = {
+  terrain: { title: "Terrain atlas", copy: "Biome pigments with local relief shading.", legend: ["FOREST", "WATER", "ROAD", "SETTLEMENT"] },
+  height: { title: "Elevation study", copy: "Pale values are high ground; dark values are low terrain.", legend: ["LOW · 50", "MID · 135", "HIGH · 220", "GRID METERS"] },
+  biomes: { title: "Biome classification", copy: "Each cell is categorized from height, moisture, and temperature.", legend: ["FOREST", "GRASS", "SAND", "ROCK"] },
+};
 
 function SliderField({
   label,
@@ -114,6 +123,7 @@ export default function Home() {
   const [showSettlements, setShowSettlements] = useState(true);
   const [zoom, setZoom] = useState(1);
   const [inspectedTile, setInspectedTile] = useState<Tile | null>(null);
+  const [railPanel, setRailPanel] = useState<RailPanel | null>(null);
   const [activity, setActivity] = useState<string[]>([
     "Seed normalized and deterministic streams initialized.",
     "Terrain, watercourses, settlements, and routes are indexed by chunks.",
@@ -184,6 +194,17 @@ export default function Home() {
   };
 
   const validationCount = world.validation.issues.filter((issue) => issue.state === "pass").length;
+  const activeLayerGuide = layerGuide[layer];
+  const activePanelTitle: Record<RailPanel, string> = {
+    editor: "Editor tools",
+    generator: "Generation controls",
+    layers: "Layer controls",
+    routes: "Path network",
+    validation: "Validation report",
+    more: "World actions",
+  };
+
+  const setPanel = (panel: RailPanel | null) => setRailPanel(panel);
 
   return (
     <div className="pf-shell">
@@ -194,14 +215,14 @@ export default function Home() {
           <span className="logo-crosshair" />
         </button>
         <nav className="rail-nav" aria-label="Workbench areas">
-          <button className="rail-button is-current" type="button" title="World editor"><MapIcon size={19} /></button>
-          <button className="rail-button" type="button" title="Generator settings"><Settings2 size={19} /></button>
-          <button className="rail-button" type="button" title="World layers"><Layers3 size={19} /></button>
-          <button className="rail-button" type="button" title="Path network"><Route size={19} /></button>
+          <button className={`rail-button ${railPanel === "editor" ? "is-current" : ""}`} type="button" title="World editor" onClick={() => setPanel("editor")}><MapIcon size={19} /></button>
+          <button className={`rail-button ${railPanel === "generator" ? "is-current" : ""}`} type="button" title="Generator settings" onClick={() => setPanel("generator")}><Settings2 size={19} /></button>
+          <button className={`rail-button ${railPanel === "layers" ? "is-current" : ""}`} type="button" title="World layers" onClick={() => setPanel("layers")}><Layers3 size={19} /></button>
+          <button className={`rail-button ${railPanel === "routes" ? "is-current" : ""}`} type="button" title="Path network" onClick={() => setPanel("routes")}><Route size={19} /></button>
         </nav>
         <div className="rail-bottom">
-          <button className="rail-button" type="button" title="Validation"><ShieldCheck size={19} /></button>
-          <button className="rail-button" type="button" title="More options"><MoreHorizontal size={19} /></button>
+          <button className={`rail-button ${railPanel === "validation" ? "is-current" : ""}`} type="button" title="Validation" onClick={() => setPanel("validation")}><ShieldCheck size={19} /></button>
+          <button className={`rail-button ${railPanel === "more" ? "is-current" : ""}`} type="button" title="More options" onClick={() => setPanel("more")}><MoreHorizontal size={19} /></button>
         </div>
       </aside>
 
@@ -289,8 +310,11 @@ export default function Home() {
             </div>
             <WorldCanvas world={world} brush={brush} layer={layer} showRivers={showRivers} showRoads={showRoads} showSettlements={showSettlements} zoom={zoom} onBrush={editWorld} onInspect={setInspectedTile} />
             <div className="map-footer">
-              <div><span className="legend-swatch legend-swatch--forest" /> FOREST <span className="legend-swatch legend-swatch--water" /> WATER <span className="legend-swatch legend-swatch--road" /> ROAD <span className="legend-swatch legend-swatch--village" /> SETTLEMENT</div>
-              <div>GRID RESOLUTION <strong>{world.config.size} × {world.config.size}</strong></div>
+              <div className="map-mode-readout"><strong>{activeLayerGuide.title}</strong><span>{activeLayerGuide.copy}</span></div>
+              <div className="map-legend" aria-label={`${activeLayerGuide.title} legend`}>
+                {activeLayerGuide.legend.map((legend, index) => <span key={legend}><i className={`legend-swatch legend-swatch--${layer}-${index}`} />{legend}</span>)}
+              </div>
+              <div>GRID <strong>{world.config.size} × {world.config.size}</strong></div>
             </div>
           </section>
 
@@ -340,6 +364,54 @@ export default function Home() {
           </div>
         </section>
       </main>
+
+      <Sheet open={railPanel !== null} onOpenChange={(open) => !open && setPanel(null)}>
+        <SheetContent className="pf-side-sheet" side="right">
+          <SheetHeader className="pf-side-sheet__header">
+            <div className="sheet-eyebrow">PIXELFORGE / INSTRUMENT WINDOW</div>
+            <SheetTitle className="pf-side-sheet__title">{railPanel ? activePanelTitle[railPanel] : "Workbench"}</SheetTitle>
+            <SheetDescription className="pf-side-sheet__description">Adjust, inspect, or act on the active generated world without leaving the map.</SheetDescription>
+          </SheetHeader>
+          <div className="pf-side-sheet__body">
+            {railPanel === "editor" && <>
+              <div className="sheet-stat-line"><span>ACTIVE BRUSH</span><strong>{brush.toUpperCase()}</strong></div>
+              <div className="sheet-section-label">SELECT A MAP TOOL</div>
+              <div className="sheet-brush-grid">{brushOptions.map((option) => { const Icon = option.icon; return <button type="button" className={brush === option.id ? "is-selected" : ""} key={option.id} onClick={() => setBrush(option.id)}><Icon size={16} /><span><strong>{option.label}</strong><small>{option.id === "erase" ? "Remove a feature or restore a tile to grassland." : "Apply this tool to a single map tile."}</small></span></button>; })}</div>
+              <p className="sheet-tip">Choose a tool, close this window, then click a map tile. Use the header undo control to restore the previous atlas state.</p>
+            </>}
+            {railPanel === "generator" && <>
+              <div className="sheet-stat-line"><span>WORLD SEED</span><strong>{config.seed}</strong></div>
+              <SliderField label="Landmass" value={config.seaLevel} min={0.22} max={0.42} step={0.01} suffix="%" onChange={(value) => updateConfig({ seaLevel: value })} />
+              <SliderField label="Relief" value={config.roughness} min={0.35} max={1} step={0.01} suffix="%" onChange={(value) => updateConfig({ roughness: value })} />
+              <SliderField label="Rainfall" value={config.rainfall} min={0.2} max={0.9} step={0.01} suffix="%" onChange={(value) => updateConfig({ rainfall: value })} />
+              <button className="sheet-primary-action" type="button" onClick={() => { generate(); setPanel(null); }}><Sparkles size={16} /> GENERATE WITH THESE PARAMETERS</button>
+            </>}
+            {railPanel === "layers" && <>
+              <div className="sheet-section-label">MAP MODE</div>
+              <div className="sheet-choice-grid">{(["terrain", "height", "biomes"] as MapLayer[]).map((item) => <button type="button" key={item} className={layer === item ? "is-selected" : ""} onClick={() => setLayer(item)}><strong>{layerGuide[item].title}</strong><small>{layerGuide[item].copy}</small></button>)}</div>
+              <div className="sheet-section-label">OVERLAYS</div>
+              <label className="sheet-toggle"><span>Watercourses</span><input type="checkbox" checked={showRivers} onChange={(event) => setShowRivers(event.target.checked)} /></label>
+              <label className="sheet-toggle"><span>Road network</span><input type="checkbox" checked={showRoads} onChange={(event) => setShowRoads(event.target.checked)} /></label>
+              <label className="sheet-toggle"><span>Settlements</span><input type="checkbox" checked={showSettlements} onChange={(event) => setShowSettlements(event.target.checked)} /></label>
+            </>}
+            {railPanel === "routes" && <>
+              <div className="sheet-stat-line"><span>PATHFINDING</span><strong>A* ACTIVE</strong></div>
+              <div className="route-list">{world.roads.length ? world.roads.map((road) => { const source = world.settlements.find((settlement) => settlement.id === road.from); const destination = world.settlements.find((settlement) => settlement.id === road.to); return <div key={road.id}><Route size={15} /><span><strong>{source?.name ?? "Origin"} → {destination?.name ?? "Destination"}</strong><small>{road.path.length} navigable tiles</small></span></div>; }) : <p>No road routes are currently registered.</p>}</div>
+              <button className="sheet-secondary-action" type="button" onClick={() => { setShowRoads(true); setPanel(null); }}>FOCUS ROUTE NETWORK</button>
+            </>}
+            {railPanel === "validation" && <>
+              <div className={`sheet-validation-summary ${world.validation.valid ? "is-valid" : ""}`}><ShieldCheck size={19} /><span><strong>{world.validation.valid ? "World validated" : "Action required"}</strong><small>{validationCount} of 6 safety gates pass</small></span></div>
+              <div className="sheet-validation-list">{world.validation.issues.map((issue) => <div key={issue.id}><span className={issue.state}>{issue.state === "pass" ? "✓" : "!"}</span><p><strong>{issue.label}</strong><small>{issue.detail}</small></p></div>)}</div>
+              <button className="sheet-primary-action" type="button" onClick={() => { generate(); setPanel(null); }}><RefreshCcw size={15} /> REBUILD AND REVALIDATE</button>
+            </>}
+            {railPanel === "more" && <>
+              <button className="sheet-action-row" type="button" onClick={exportWorld}><Download size={16} /><span><strong>Export world JSON</strong><small>Save this exact generated atlas.</small></span></button>
+              <button className="sheet-action-row" type="button" onClick={() => fileInput.current?.click()}><FileUp size={16} /><span><strong>Import world JSON</strong><small>Load a saved PixelForge atlas.</small></span></button>
+              <button className="sheet-action-row" type="button" onClick={() => { setConfig(DEFAULT_CONFIG); generate(DEFAULT_CONFIG); setPanel(null); }}><RefreshCcw size={16} /><span><strong>Restore baseline seed</strong><small>Return to the starter world parameters.</small></span></button>
+            </>}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
