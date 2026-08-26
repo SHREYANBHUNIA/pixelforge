@@ -1,8 +1,8 @@
 # PixelForge Editor Repair Tasks
 
-- [ ] Inspect local repository status and identify the authenticated GitHub account.
-- [ ] Create a private PixelForge GitHub repository and push the current source.
-- [ ] Verify the remote repository and provide concrete GitHub deployment steps.
+- [x] Inspect local repository status and identify the authenticated GitHub account.
+- [x] Create a private PixelForge GitHub repository and push the current source.
+- [x] Verify the remote repository and provide concrete GitHub deployment steps.
 - [x] Trace why selected brushes are not reliably applying through canvas interaction.
 - [x] Support pointer click and pointer-drag editing with a clear selected-tile confirmation.
 - [x] Make Forest, Terrain, Water, Road, Village, and Erase each create visibly distinct map changes.
