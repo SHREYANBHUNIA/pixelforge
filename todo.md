@@ -1,5 +1,8 @@
 # PixelForge Editor Repair Tasks
 
+- [ ] Inspect the current commit author metadata in the Git history.
+- [ ] Rewrite all PixelForge commits with the requested author identity.
+- [ ] Force-push the rewritten history and verify the remote author details.
 - [x] Inspect local repository status and identify the authenticated GitHub account.
 - [x] Create a private PixelForge GitHub repository and push the current source.
 - [x] Verify the remote repository and provide concrete GitHub deployment steps.
