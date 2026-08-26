@@ -52,7 +52,10 @@ export default function WorldCanvas({
 }: WorldCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
+  const isEditingRef = useRef(false);
+  const lastEditedRef = useRef<string | null>(null);
   const [hoverPoint, setHoverPoint] = useState<Point | null>(null);
+  const [appliedPoint, setAppliedPoint] = useState<Point | null>(null);
   const size = world.config.size;
   const pixelRatio = typeof window === "undefined" ? 1 : window.devicePixelRatio || 1;
 
@@ -158,6 +161,18 @@ export default function WorldCanvas({
       }
 
       if (showRoads) {
+        context.fillStyle = "rgba(116, 73, 45, 0.86)";
+        for (const tile of world.tiles.flat()) {
+          if (!tile.road) continue;
+          const markerWidth = Math.max(2, tileWidth * 0.55);
+          const markerHeight = Math.max(2, tileHeight * 0.55);
+          context.fillRect(
+            offsetX + (tile.x + 0.5) * tileWidth - markerWidth / 2,
+            offsetY + (tile.y + 0.5) * tileHeight - markerHeight / 2,
+            markerWidth,
+            markerHeight,
+          );
+        }
         context.strokeStyle = "rgba(116, 73, 45, 0.78)";
         context.lineCap = "round";
         context.lineJoin = "round";
@@ -209,15 +224,24 @@ export default function WorldCanvas({
           Math.max(2, tileHeight - 1.4),
         );
       }
+      if (appliedPoint) {
+        const x = offsetX + appliedPoint.x * tileWidth;
+        const y = offsetY + appliedPoint.y * tileHeight;
+        context.fillStyle = "rgba(231, 93, 42, 0.22)";
+        context.fillRect(x, y, tileWidth, tileHeight);
+        context.strokeStyle = "#fff4dd";
+        context.lineWidth = 1.3;
+        context.strokeRect(x + 1, y + 1, Math.max(2, tileWidth - 2), Math.max(2, tileHeight - 2));
+      }
       context.restore();
     };
     draw();
     const observer = new ResizeObserver(draw);
     observer.observe(frame);
     return () => observer.disconnect();
-  }, [world, layer, showRivers, showRoads, showSettlements, hoverPoint, zoom, pixelRatio, size]);
+  }, [world, layer, showRivers, showRoads, showSettlements, hoverPoint, appliedPoint, zoom, pixelRatio, size]);
 
-  const eventToPoint = (event: React.MouseEvent<HTMLCanvasElement>) => {
+  const eventToPoint = (event: { clientX: number; clientY: number }) => {
     const canvas = canvasRef.current;
     if (!canvas) return null;
     const bounds = canvas.getBoundingClientRect();
@@ -231,24 +255,48 @@ export default function WorldCanvas({
     return { x, y };
   };
 
+  const applyAtPointer = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    const point = eventToPoint(event);
+    if (!point) return;
+    const key = `${point.x},${point.y}`;
+    if (key === lastEditedRef.current) return;
+    lastEditedRef.current = key;
+    setAppliedPoint(point);
+    onBrush(point);
+  };
+
   return (
     <div className="world-canvas-frame" ref={frameRef}>
       <canvas
         ref={canvasRef}
         className="world-canvas"
-        aria-label="Interactive generated world map"
-        onClick={(event) => {
-          const point = eventToPoint(event);
-          if (point) onBrush(point);
+        aria-label="Interactive generated world map. Select a tool, then click or drag across tiles to edit."
+        onPointerDown={(event) => {
+          event.currentTarget.setPointerCapture(event.pointerId);
+          isEditingRef.current = true;
+          lastEditedRef.current = null;
+          applyAtPointer(event);
         }}
-        onMouseMove={(event) => {
+        onPointerMove={(event) => {
           const point = eventToPoint(event);
           setHoverPoint(point);
           onInspect(point ? world.tiles[point.y][point.x] : null);
+          if (isEditingRef.current) applyAtPointer(event);
         }}
-        onMouseLeave={() => {
-          setHoverPoint(null);
-          onInspect(null);
+        onPointerUp={(event) => {
+          isEditingRef.current = false;
+          lastEditedRef.current = null;
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+        }}
+        onPointerCancel={() => {
+          isEditingRef.current = false;
+          lastEditedRef.current = null;
+        }}
+        onPointerLeave={() => {
+          if (!isEditingRef.current) {
+            setHoverPoint(null);
+            onInspect(null);
+          }
         }}
       />
       <div className="canvas-corner canvas-corner--top-left" />
@@ -261,6 +309,7 @@ export default function WorldCanvas({
         <span>BRUSH</span>
         <strong>{brush}</strong>
       </div>
+      {appliedPoint && <div className="map-edit-notice" aria-live="polite"><span>APPLIED</span><strong>{brush.toUpperCase()} · {appliedPoint.x}, {appliedPoint.y}</strong></div>}
       {settlementMap.size > 0 && <div className="map-watermark">PIXELFORGE ATLAS / C-04</div>}
     </div>
   );

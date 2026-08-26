@@ -610,8 +610,15 @@ export function applyBrush(world: World, point: Point, brush: Brush): World {
     tile.river = false;
     tile.road = false;
   }
-  if (brush === "road") tile.road = true;
-  if (brush === "village" && !tile.settlementId && !isWater(tile)) {
+  if (brush === "road") {
+    tile.height = Math.max(tile.height, next.config.seaLevel + 0.1);
+    if (isWater(tile)) tile.biome = "grassland";
+    tile.road = true;
+  }
+  if (brush === "village" && !tile.settlementId) {
+    tile.height = Math.max(tile.height, next.config.seaLevel + 0.1);
+    if (isWater(tile)) tile.biome = "grassland";
+    tile.river = false;
     const settlement: Settlement = {
       id: `settlement-manual-${next.settlements.length + 1}`,
       x: point.x,

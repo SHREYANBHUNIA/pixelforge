@@ -26,4 +26,24 @@ describe("PixelForge world generator", () => {
     expect(erased.tiles[point.y][point.x].biome).toBe("grassland");
     expect(erased.tiles[point.y][point.x].road).toBe(false);
   });
+
+  it("applies every editor brush to a visible world state", () => {
+    const world = generateWorld(DEFAULT_CONFIG);
+    const forestPoint = { x: 12, y: 12 };
+    const waterPoint = { x: 14, y: 14 };
+    const roadPoint = { x: 16, y: 16 };
+    const villagePoint = { x: 18, y: 18 };
+    const forest = applyBrush(world, forestPoint, "forest");
+    const terrain = applyBrush(forest, forestPoint, "grassland");
+    const water = applyBrush(terrain, waterPoint, "water");
+    const road = applyBrush(water, roadPoint, "road");
+    const villageWater = applyBrush(road, villagePoint, "water");
+    const village = applyBrush(villageWater, villagePoint, "village");
+    expect(forest.tiles[forestPoint.y][forestPoint.x].biome).toBe("forest");
+    expect(terrain.tiles[forestPoint.y][forestPoint.x].biome).toBe("grassland");
+    expect(water.tiles[waterPoint.y][waterPoint.x].biome).toBe("lake");
+    expect(road.tiles[roadPoint.y][roadPoint.x].road).toBe(true);
+    expect(village.tiles[villagePoint.y][villagePoint.x].settlementId).toBeDefined();
+    expect(village.tiles[villagePoint.y][villagePoint.x].biome).toBe("grassland");
+  });
 });

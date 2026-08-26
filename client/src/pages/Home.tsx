@@ -115,6 +115,7 @@ function ToolButton({
 export default function Home() {
   const [config, setConfig] = useState<WorldConfig>(DEFAULT_CONFIG);
   const [world, setWorld] = useState<World>(() => generateWorld(DEFAULT_CONFIG));
+  const worldRef = useRef<World>(world);
   const [history, setHistory] = useState<World[]>([]);
   const [brush, setBrush] = useState<Brush>("forest");
   const [layer, setLayer] = useState<MapLayer>("terrain");
@@ -136,7 +137,8 @@ export default function Home() {
   const generate = (nextConfig = config) => {
     const fresh = generateWorld(nextConfig);
     setConfig(nextConfig);
-    setHistory((current) => [...current.slice(-8), world]);
+    setHistory((current) => [...current.slice(-8), worldRef.current]);
+    worldRef.current = fresh;
     setWorld(fresh);
     setActivity((current) => [
       `World ${String(nextConfig.seed).padStart(6, "0")} rebuilt across ${fresh.stats.chunks} streamed chunks.`,
@@ -153,15 +155,18 @@ export default function Home() {
   };
 
   const editWorld = (point: { x: number; y: number }) => {
-    const edited = applyBrush(world, point, brush);
-    setHistory((current) => [...current.slice(-8), world]);
+    const beforeEdit = worldRef.current;
+    const edited = applyBrush(beforeEdit, point, brush);
+    setHistory((current) => [...current.slice(-8), beforeEdit]);
+    worldRef.current = edited;
     setWorld(edited);
-    setActivity((current) => [`${brush} brush applied at coordinate ${point.x}, ${point.y}. Validation rechecked.`, ...current.slice(0, 2)]);
+    setActivity((current) => [`${brush.toUpperCase()} applied at ${point.x}, ${point.y}. Click or drag to paint more tiles.`, ...current.slice(0, 2)]);
   };
 
   const undo = () => {
     const last = history[history.length - 1];
     if (!last) return;
+    worldRef.current = last;
     setWorld(last);
     setConfig(last.config);
     setHistory((current) => current.slice(0, -1));
@@ -184,7 +189,8 @@ export default function Home() {
     try {
       const imported = configFromJSON(JSON.parse(await file.text()));
       if (!imported) throw new Error("File does not contain a PixelForge world.");
-      setHistory((current) => [...current.slice(-8), world]);
+      setHistory((current) => [...current.slice(-8), worldRef.current]);
+      worldRef.current = imported;
       setWorld(imported);
       setConfig(imported.config);
       setActivity((current) => [`Imported world ${imported.config.seed} and reran validation.`, ...current.slice(0, 2)]);
